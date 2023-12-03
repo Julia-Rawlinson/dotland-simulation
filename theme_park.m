@@ -10,13 +10,12 @@ main();
 
 function main()
 
-
     % Define Constants
     NUM_RIDES = 5;                      % Number of rides
     MAX_TIME = 12;                      % Length of the simulation in hours
     MU = 1/60;                          % Average processing time at the gate (hours)
     % PARK_CAPACITY = 1000;             % Maximum guests allowed in the park at any time
-    Y_AXIS_LIMIT = 200;
+    Y_AXIS_LIMIT = 50;
     RIDE_CAPACITIES = [12 10 15 12 10]; % Number of riders per service
     RIDE_DURATION = 5/60;               % Duration of each ride (hours), includes loading and unloading
 
@@ -24,7 +23,6 @@ function main()
     rides = categorical({'Carousel', 'Scrambler', 'Teacups', 'Coaster', 'Dark Ride'});
     standby = zeros(1, NUM_RIDES);          % Standby line lengths
     busy = false(1, NUM_RIDES);             % Busy flags for each ride
-
 
     guests_in_park = 0;                     % Number of people in the park currently
     gate = 0;                               % Length of gate queue
@@ -54,7 +52,7 @@ function main()
     xlabel('Time (hours)');
     ylabel('Queue Length');
     ylim([0 Y_AXIS_LIMIT]); 
-     total_guests_label = text(0.5, Y_AXIS_LIMIT - 15, '', 'FontSize', 10);
+    total_guests_label = text(0.5, Y_AXIS_LIMIT - 15, '', 'FontSize', 10);
 
     % Begin main loop - simulates one day at the park
     while time < MAX_TIME
@@ -171,7 +169,7 @@ end
 
 % Time dependent lambda function
 function l = lambda(time)
-    peakTime = 2;           % Peak time 3 hours after opening
+    peakTime = 2;           % Peak time 2 hours after opening
     lambdaMax = 100;         % Maximum rate at peak time
     lambdaMin = 0;         % Minimum rate
     width = 3;              % Controls the spread of the peak
