@@ -25,12 +25,14 @@ function main()
     rides = categorical({'Carousel', 'Scrambler', 'Teacups', 'Coaster', 'Dark Ride'});
     standby = zeros(1, NUM_RIDES);          % Standby line lengths
     busy = false(1, NUM_RIDES);             % Busy flags for each ride
-    Q = [];
-    
+
 
     guests_in_park = 0;                     % Number of people in the park currently
     gate = 0;                               % Length of gate queue
     gate_attendant_busy = false;            % Gate attendant busy flag
+    
+    total_guests = 0;
+    fastpass_status = zeros(1, 1000);   % Initialize fastpass status flags for 1000 guests, adjust afterwards to match how many are needed
 
     % Timing Variables
     time = 0;                               % Simulation clock
@@ -56,7 +58,7 @@ function main()
     xlabel('Time (hours)');
     ylabel('Queue Length');
     ylim([0 Y_AXIS_LIMIT]); 
-     total_guests_label = text(0.5, Y_AXIS_LIMIT - 15, '', 'FontSize', 10);
+    total_guests_label = text(0.5, Y_AXIS_LIMIT - 15, '', 'FontSize', 10);
 
     % Begin main loop - simulates one day at the park
     while time < MAX_TIME
@@ -72,6 +74,11 @@ function main()
         % Customer arrives at gate
         if next_event_time == next_arrival_time
 
+            total_guests = total_guests + 1;
+
+            % Assign a new ID to the new guest.
+            guest_id = 100 + total_guests;
+
             gate = gate + 1;                                  % Increase gate queue
             next_arrival_time = time + expon(1/lambda(time)); % Set time of next arrival
 
@@ -83,6 +90,11 @@ function main()
 
         % Customer admitted to the park
         elseif next_event_time == next_admission_time
+
+            % FastPass assignment
+            fastpass_status(guest_id) = randi([0 1]);
+            % Create a table to hold information to pass to CSV
+            guest_data = table((1:total_guests)', fastpass_status(1:total_guests)', 'VariableNames', {'Guest_ID', 'FastPass'});
 
             gate = gate - 1;                                    % Decrease gate queue length
             guests_in_park = guests_in_park + 1;                % Increase number of guests in park
@@ -164,10 +176,14 @@ function main()
         hours = floor(clockTime);
         minutes = floor((clockTime - hours) * 60);
         xlabel(['Time: ', sprintf('%02d:%02d', hours, minutes)]); % Update the x-axis label with clock time
-         set(total_guests_label, 'String', ['Total Guests in Park: ', num2str(guests_in_park)]); 
+        set(total_guests_label, 'String', ['Total Guests in Park: ', num2str(guests_in_park)]); 
         drawnow;
         
     end
+
+
+    
+    writetable(guest_data, 'guest_data.csv');
 
 end
 
