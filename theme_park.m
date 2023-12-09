@@ -33,6 +33,8 @@ function main()
     
     total_guests = 0;
     fastpass_status = zeros(1, 1000);   % Initialize fastpass status flags for 1000 guests, adjust afterwards to match how many are needed
+    fastpass_returnTime = zeros(1, 1000);
+    fastpass_rideWindow = 1:0.5:11;
 
     % Timing Variables
     time = 0;                               % Simulation clock
@@ -40,6 +42,7 @@ function main()
     next_admission_time = inf;              % Initial next admission AT GATE
     next_departure_time = inf;              % Initial next departure time from the PARK
     next_ride_times = inf(1, NUM_RIDES);    % Times when next rides will complete
+    
 
     % Create Plot
     h = figure;
@@ -93,8 +96,21 @@ function main()
 
             % FastPass assignment
             fastpass_status(guest_id) = randi([0 1]);
+
+            if fastpass_status(guest_id) == 1
+                
+                % Another IF statement if we want to make sure the
+                % returnTime is not greater than the closing time
+
+                % A time that is between opening and closing in 30 minute
+                % intervals
+                randomTime = randi([2, 24]) / 2;
+                fastpass_returnTime(guest_id) = randomTime;
+            end            
+            
+
             % Create a table to hold information to pass to CSV
-            guest_data = table((1:total_guests)', fastpass_status(1:total_guests)', 'VariableNames', {'Guest_ID', 'FastPass'});
+            guest_data = table((1:total_guests)', fastpass_status(1:total_guests)', fastpass_returnTime(1:total_guests)', 'VariableNames',{'Guest_ID', 'FastPass', 'FastPassTime'});
 
             gate = gate - 1;                                    % Decrease gate queue length
             guests_in_park = guests_in_park + 1;                % Increase number of guests in park
@@ -180,9 +196,8 @@ function main()
         drawnow;
         
     end
-
-
     
+    % Export information to excel file
     writetable(guest_data, 'guest_data.csv');
 
 end
