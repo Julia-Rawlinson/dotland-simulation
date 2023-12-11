@@ -9,7 +9,7 @@ close all;
 main();
 
 function main()
-
+    
     % Define Constants
     NUM_RIDES = 5;                      % Number of rides
     MAX_TIME = 12;                      % Length of the simulation in hours
@@ -23,7 +23,7 @@ function main()
     rides = categorical({'Carousel', 'Scrambler', 'Teacups', 'Coaster', 'Dark Ride'});
     standby = zeros(1, NUM_RIDES);          % Standby line lengths
     busy = false(1, NUM_RIDES);             % Busy flags for each ride
-
+    Q = [];
     guests_in_park = 0;                     % Number of people in the park currently
     gate = 0;                               % Length of gate queue
     gate_attendant_busy = false;            % Gate attendant busy flag
@@ -58,7 +58,7 @@ function main()
     while time < MAX_TIME
 
         % Determine next event time
-        next_event_time = min([next_arrival_time, next_admission_time, next_departure_time, next_ride_times]);
+        next_event_time = min([next_arrival_time, next_admission_time, next_departure_time, next_ride_times ]);
 
         % Update time
         time = next_event_time;
