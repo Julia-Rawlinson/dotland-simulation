@@ -14,7 +14,7 @@ function main()
     NUM_RIDES = 5;                      % Number of rides
     MAX_TIME = 12;                      % Length of the simulation in hours
     MU = 1/60;                          % Average processing time at the gate (hours)
-    Y_AXIS_LIMIT = 50;
+    Y_AXIS_LIMIT = 35;
     RIDE_CAPACITIES = [12 10 15 12 10]; % Number of riders per service
     RIDE_DURATION = 5/60;               % Duration of each ride (hours), includes loading and unloading
     AVG = RIDE_CAPACITIES;
@@ -24,16 +24,25 @@ function main()
     rides = categorical({'Carousel', 'Scrambler', 'Teacups', 'Coaster', 'Dark Ride'});
     standby = zeros(1, NUM_RIDES);          % Standby line lengths
     busy = false(1, NUM_RIDES);             % Busy flags for each ride
-    % fastpass_q = zeros(1, NUM_RIDES);       % Fastpass queue lengths
-
+    fastpass = zeros(1, NUM_RIDES);         % Fastpass queue lengths
     guests_in_park = 0;                     % Number of people in the park currently
     gate = 0;                               % Length of gate queue
     gate_attendant_busy = false;            % Gate attendant busy flag
-    
     total_guests = 0;
     % fastpass_status = zeros(1, 1000);   % Initialize fastpass status flags for 1000 guests, adjust afterwards to match how many are needed
     % fastpass_returnTime = zeros(1, 1000);
     % fastpass_count = zeros(1, NUM_RIDES);   % Actual number of FastPasses issued
+
+    % Initialize FIFO queues for each lineup type
+    standby_ride_queues = cell(NUM_RIDES, 1);
+    for i = 1:NUM_RIDES
+        standby_ride_queues{i} = [];  % Each cell is an empty array representing a queue
+    end
+
+    fastpass_ride_queues = cell(NUM_RIDES, 1);
+    for i = 1:NUM_RIDES
+        fastpass_ride_queues{i} = [];  % Each cell is an empty array representing a queue
+    end
 
     % Timing Variables
     time = 0;                               % Simulation clock
@@ -45,7 +54,7 @@ function main()
     % Create table for guest management
     max_guests = 1000; % Define the maximum number of guests expected
     guest_data = table((1:max_guests)', false(max_guests, 1), NaN(max_guests, 1), NaN(max_guests, 1), zeros(max_guests, 1), zeros(max_guests, 1), 'VariableNames', {'Guest_ID', 'FastPass', 'ReturnTime', 'LastEntryTime', 'TotalWaitTime', 'RidesTaken'});
-    guest_id = inf;
+    last_id = 0;
 
     % Create Plot
     h = figure;
@@ -94,7 +103,8 @@ function main()
 
             gate = gate - 1;                                    % Decrease gate queue length
             guests_in_park = guests_in_park + 1;                % Increase number of guests in park
-            guest_id = guests_in_park;
+            guest_id = last_id + 1;                             % IDs issued in order
+            last_id = guest_id;
 
             if gate > 0
                 next_admission_time = time + expon(MU);         % Schedule next guest admission
@@ -106,6 +116,8 @@ function main()
             % Choose a ride and join the queue
             chosen_ride = randi(NUM_RIDES);                     % Randomly select a ride
             guest_data.LastEntryTime(guest_id) = time;
+            standby_ride_queues{chosen_ride} = [standby_ride_queues{chosen_ride}, guest_id];  % Add guest ID to the end of the queue
+            standby(chosen_ride) = standby(chosen_ride) + 1;
 
             % if fastpass_count(chosen_ride) < FASTPASS_LIMIT(chosen_ride)
                 
@@ -124,7 +136,7 @@ function main()
             % else
                 % IF there are no more FastPasses available, peasants go to
                 % the standby Queue
-                standby(chosen_ride) = standby(chosen_ride) + 1;
+                
                 
             % end       
 
@@ -141,27 +153,32 @@ function main()
 
             % Identify which ride has finished
             finished_ride = find(next_event_time == next_ride_times); 
+            
+            for r = 1:length(finished_ride) % Necessary because sometimes rides let out at the exact same time
 
             % Process ride completion
-            busy(finished_ride) = false; % Ride becomes available
-            num_guests_finished = min(standby(finished_ride), RIDE_CAPACITIES(finished_ride));
-            standby(finished_ride) = max(standby(finished_ride) - RIDE_CAPACITIES(finished_ride), 0); % Decrement queue
-
-            % If there are enough guests waiting, start the next ride cycle immediately
-            if standby(finished_ride) >= RIDE_CAPACITIES(finished_ride)
-                busy(finished_ride) = true;
-                next_ride_times(finished_ride) = time + RIDE_DURATION; % Schedule next ride completion time
-            else
-                next_ride_times(finished_ride) = inf; % No immediate next cycle if not enough guests
-            end
+            busy(finished_ride(r)) = false; % Ride becomes available
+            num_guests_finished = min(standby(finished_ride(r)), RIDE_CAPACITIES(finished_ride(r)));
+            standby(finished_ride(r)) = max(standby(finished_ride(r)) - RIDE_CAPACITIES(finished_ride(r)), 0); % Decrement queue
             
-            % Guests make post ride activity decision 
             for i = 1:num_guests_finished
+
+                % Dequeue the first guest in the queue
+                guest_id = standby_ride_queues{finished_ride(r)}(1);
+                standby_ride_queues{finished_ride(r)}(1) = [];
+
+                % Update guest data for the disembarking guest
+                guest_data.RidesTaken(guest_id) = guest_data.RidesTaken(guest_id) + 1;
+
+                wait_time = max((time - guest_data.LastEntryTime(guest_id)) - RIDE_DURATION, 0);
+                guest_data.TotalWaitTime(guest_id) = guest_data.TotalWaitTime(guest_id) + wait_time;
+                % ... other updates as needed ... TODO
 
                 % Guest leaves the park with 2/5 probability
                 if rand <= 0.4 % TODO: Update this logic
-
+                    
                     guests_in_park = guests_in_park - 1;
+                    % Optionally update guest_data to reflect their departure
 
                     % Guest returns their FastPass aka more FastPasses
                     % become available
@@ -171,9 +188,9 @@ function main()
 
                 % Guest decides to go on another ride
                 else
-                    
-                    % Randomly select a ride
-                    chosen_ride = randi(NUM_RIDES);                     
+                    chosen_ride = randi(NUM_RIDES); % Randomly select a ride
+                    guest_data.LastEntryTime(guest_id) = time;
+                    standby_ride_queues{chosen_ride} = [standby_ride_queues{chosen_ride}, guest_id];  % Add guest ID to the end of the queue
 
                     % Check again for FastPass limits
                     % if fastpass_count(chosen_ride) < FASTPASS_LIMIT(chosen_ride)
@@ -191,6 +208,16 @@ function main()
                     end
 
                 end
+
+            end
+
+            % If there are enough guests waiting, start the next ride cycle immediately
+            if standby(finished_ride(r)) >= RIDE_CAPACITIES(finished_ride(r))
+                busy(finished_ride(r)) = true;
+                next_ride_times(finished_ride(r)) = time + RIDE_DURATION; % Schedule next ride completion time
+            else
+                next_ride_times(finished_ride(r)) = inf; % No immediate next cycle if not enough guests
+            end
 
             end
 
